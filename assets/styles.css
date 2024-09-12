@@ -1,0 +1,35 @@
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+body {
+  background-color: red;
+}
+.spin {
+  animation: spin 2s linear infinite;
+}
+.running {
+  opacity: 0.5;
+}
+
+.deploying {
+  color: #f5a623;
+}
+
+.success {
+  color: #50e3c2;
+}
+
+.error {
+  color: #ff3333;
+}
+
+.vwd-status-icon {
+  display: inline-block;
+  position: relative;
+}

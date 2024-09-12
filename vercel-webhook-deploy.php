@@ -79,17 +79,52 @@ class vdhp_vercel_webhook_deploy
     add_action('wp_ajax_get_deployment_status', array($this, 'get_deployment_status'));
 
     // Add assets enqueue
-    add_action('wp_enqueue_styles', array($this, 'enqueue_styles'));
-    add_action('admin_enqueue_styles', array($this, 'enqueue_styles'));
+    add_action('admin_enqueue_scripts', array($this, 'enqueue_styles'));
+
+    // Add notification for deployment status
+    add_action('admin_notices', array($this, 'admin_notice_deploy'));
   }
+
+
+  public function admin_notice_deploy()
+  {
+    if (isset($_GET['deployment_status'])) {
+      $status = $_GET['deployment_status'];
+      $class = '';
+      $message = '';
+      if ($status == 'ready') {
+        $class = 'success';
+        $message =  _e('The deploy completed successfully! <a href="' . get_home_url() . '" target="_blank">Checkout your updates</a>', 'vercel-deploy-hooks');
+      }
+      if ($status == 'error') {
+        $class == 'error';
+        $message =  _e('The deploy was not completed. Something went wrong; please try again', 'vercel-deploy-hooks');
+      }
+      if ($status == 'queued') {
+        $class == 'warning';
+        $message =  _e('It seems another deploy is running. Please wait until it has finished to start a new one.', 'vercel-deploy-hooks');
+      }
+      echo '<div class="notice notice-' . $class . ' is-dismissible"><p>';
+      echo $message;
+      echo '</p></div>';
+    }
+  }
+  // public function admin_notice_deploy()
+  // {
+  //   echo '<div class="notice notice-success is-dismissible"><p>';
+
+  //   _e('Deploy completed!', 'vercel-deploy-hooks');
+
+  //   _e('Deploy pending', 'vercel-deploy-hooks');
+
+  //   echo '</p></div>';
+  // }
 
   public function enqueue_styles()
   {
-    wp_register_style('custom-styles', plugin_dir_url(__FILE__) . 'assets/notifications.css');
-    // Carica lo stile nell'area admin
-    if (is_admin()) {
-      wp_enqueue_style('custom-styles');
-    }
+    wp_register_style('custom-styles', plugin_dir_url(__FILE__) . 'assets/styles.css');
+
+    wp_enqueue_style('custom-styles');
   }
 
   public function get_deployment_status()
@@ -393,9 +428,11 @@ jQuery(document).ready(function($) {
       $buttonContent.find('.ab-label').text('Deploy');
       $buttonContent.find('.ab-icon')
         .removeClass($classesToRemove).addClass('dashicons-no')
+      $buttonContent.find('.ab-label').text('Error');
       setTimeout(function() {
         $buttonContent.find('.ab-icon')
           .removeClass($classesToRemove).addClass('dashicons-hammer');
+        $buttonContent.find('.ab-label').text('Deploy');
       }, 30000); // 30 seconds
 
     } else if (status === 'READY') {
@@ -403,9 +440,11 @@ jQuery(document).ready(function($) {
       $buttonContent.find('.ab-label').text('Deploy');
       $buttonContent.find('.ab-icon')
         .removeClass($classesToRemove).addClass('dashicons-yes')
+      $buttonContent.find('.ab-label').text('Ready!');
       setTimeout(function() {
         $buttonContent.find('.ab-icon')
           .removeClass($classesToRemove).addClass('dashicons-hammer');
+        $buttonContent.find('.ab-label').text('Deploy');
       }, 30000); // 30 seconds
     } else {
       $button.removeClass('running')
@@ -428,8 +467,7 @@ jQuery(document).ready(function($) {
         $("#build_status_state").html('<b>State</b>: ' + data.state);
         if (data.state !== 'BUILDING') {
           clearInterval(pollingInterval);
-
-
+          window.location.href = `${window.location.href}&deployment_status=${data.state.toLowerCase()}`;
         }
       },
       error: function(error) {
