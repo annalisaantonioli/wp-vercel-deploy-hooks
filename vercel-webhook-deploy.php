@@ -77,48 +77,12 @@ class vdhp_vercel_webhook_deploy
 
     // Add the endpoint for checking status
     add_action('wp_ajax_get_deployment_status', array($this, 'get_deployment_status'));
+    add_action('wp_ajax_update_deployment_status', array($this, 'update_deployment_status'));
+    add_action('wp_ajax_nopriv_update_deployment_status', array($this, 'update_deployment_status'));
 
     // Add assets enqueue
     add_action('admin_enqueue_scripts', array($this, 'enqueue_styles'));
-
-    // Add notification for deployment status
-    add_action('admin_notices', array($this, 'admin_notice_deploy'));
   }
-
-
-  public function admin_notice_deploy()
-  {
-    if (isset($_GET['deployment_status'])) {
-      $status = $_GET['deployment_status'];
-      $class = '';
-      $message = '';
-      if ($status == 'ready') {
-        $class = 'success';
-        $message =  _e('The deploy completed successfully! <a href="' . get_home_url() . '" target="_blank">Checkout your updates</a>', 'vercel-deploy-hooks');
-      }
-      if ($status == 'error') {
-        $class == 'error';
-        $message =  _e('The deploy was not completed. Something went wrong; please try again', 'vercel-deploy-hooks');
-      }
-      if ($status == 'queued') {
-        $class == 'warning';
-        $message =  _e('It seems another deploy is running. Please wait until it has finished to start a new one.', 'vercel-deploy-hooks');
-      }
-      echo '<div class="notice notice-' . $class . ' is-dismissible"><p>';
-      echo $message;
-      echo '</p></div>';
-    }
-  }
-  // public function admin_notice_deploy()
-  // {
-  //   echo '<div class="notice notice-success is-dismissible"><p>';
-
-  //   _e('Deploy completed!', 'vercel-deploy-hooks');
-
-  //   _e('Deploy pending', 'vercel-deploy-hooks');
-
-  //   echo '</p></div>';
-  // }
 
   public function enqueue_styles()
   {
@@ -126,6 +90,8 @@ class vdhp_vercel_webhook_deploy
 
     wp_enqueue_style('custom-styles');
   }
+
+
 
   public function get_deployment_status()
   {
@@ -163,46 +129,62 @@ class vdhp_vercel_webhook_deploy
     $team_id = $this->get_team_id();
     $project_id = $this->get_project_id();
 
-    // First request to get deployment ID
-    $params = array();
-    if (!empty($team_id)) {
-      $params['teamId'] = $team_id;
-    }
-    if (!empty($project_id)) {
-      $params['projectId'] = $project_id;
-    }
-    $params['limit'] = 1;
-    $params['from'] = $timestamp;
-
-    $query_string = http_build_query($params);
-    $url = "https://api.vercel.com/v3/deployments?{$query_string}";
-    error_log("query: " . $url);
+    // Retrieve the current deployment ID and status from transients
+    $current_deployment = get_transient('current_deployment');
+    $deployment_id = '';
     $options = array(
       'http' => array(
         'header'  => "Authorization: Bearer $bearer_token\r\n",
         'method'  => 'GET',
       ),
     );
-    $context  = stream_context_create($options);
-    $response = file_get_contents($url, false, $context);
+    $context = stream_context_create($options);
 
-    if ($response === false) {
-      header('HTTP/1.1 500 Internal Server Error');
-      echo json_encode(array('status' => 'error', 'message' => 'Failed to fetch deployment status'));
-      exit();
+    // Check if there's already another deploy and if it's currently running. 
+    if ($current_deployment && isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING') {
+      // Use the existing deployment ID to check its current status
+      $deployment_id = $current_deployment['id'];
+    } else {
+      // First request to get deployment ID if no current deployment
+      $params = array();
+      if (!empty($team_id)) {
+        $params['teamId'] = $team_id;
+      }
+      if (!empty($project_id)) {
+        $params['projectId'] = $project_id;
+      }
+      $params['limit'] = 1;
+      $params['from'] = $timestamp;
+
+      $query_string = http_build_query($params);
+      $url = "https://api.vercel.com/v3/deployments?{$query_string}";
+      $response = file_get_contents($url, false, $context);
+
+      if ($response === false) {
+        header('HTTP/1.1 500 Internal Server Error');
+        echo json_encode(array('status' => 'error', 'message' => 'Failed to fetch deployment status'));
+        exit();
+      }
+
+      $data = json_decode($response, true);
+
+      if (!isset($data['deployments']) || empty($data['deployments'])) {
+        header('HTTP/1.1 404 Not Found');
+        echo json_encode(array('status' => 'error', 'message' => 'No deployments found'));
+        exit();
+      }
+
+      // Get the deploy ID from the first deployment
+      $deployment_id = $data['deployments'][0]['uid'];
+
+      // Set the transient to cache the deployment ID and status
+      $current_deployment = array(
+        'id' => $deployment_id,
+        'status' => 'PENDING',
+        'created' => $timestamp
+      );
+      set_transient('current_deployment', $current_deployment, 12 * HOUR_IN_SECONDS);
     }
-
-    $data = json_decode($response, true);
-    error_log("DATAL: " . $data);
-
-    if (!isset($data['deployments']) || empty($data['deployments'])) {
-      header('HTTP/1.1 404 Not Found');
-      echo json_encode(array('status' => 'error', 'message' => 'No deployments found'));
-      exit();
-    }
-
-    // Get the deploy ID from the first deployment
-    $deployment_id = $data['deployments'][0]['uid'];
 
     // Second request to get deployment details
     $params_deployment = array();
@@ -215,7 +197,6 @@ class vdhp_vercel_webhook_deploy
 
     $query_string_02 = http_build_query($params_deployment);
     $details_url = "https://api.vercel.com/v3/deployments/{$deployment_id}?{$query_string_02}";
-    error_log("Single deploy URL: " . $details_url);
     $details_response = file_get_contents($details_url, false, $context);
 
     if ($details_response === false) {
@@ -224,9 +205,64 @@ class vdhp_vercel_webhook_deploy
       exit();
     }
 
+    $details_data = json_decode($details_response, true);
+    if (isset($details_data['state'])) {
+      // Update the transient with the deployment details
+      $current_deployment = array(
+        'id' => $deployment_id,
+        'status' => $details_data['state'],
+        'created' => $details_data['created']
+      );
+      set_transient('current_deployment', $current_deployment, 12 * HOUR_IN_SECONDS);
+    } else {
+      // Handle unexpected data format
+      header('HTTP/1.1 500 Internal Server Error');
+      echo json_encode(array('status' => 'error', 'message' => 'Invalid deployment details format'));
+      exit();
+    }
+
+    // Return the deployment details
     echo $details_response;
     exit();
   }
+
+  public function update_deployment_status()
+  {
+    // Check the nonce and user capability
+    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'update_deployment_status_nonce')) {
+      wp_send_json_error('Invalid nonce');
+      return;
+    }
+
+    if (!is_user_logged_in()) {
+      wp_send_json_error('Unauthorized');
+      return;
+    }
+
+    if (!current_user_can('vercel_deploy_capability')) {
+      wp_send_json_error('Unauthorized');
+      return;
+    }
+
+    // Sanitize and update deploy status
+    $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+
+    if (empty($status)) {
+      wp_send_json_error('Status param value is required');
+      return;
+    }
+
+    // Update transient
+    $current_deployment = get_transient('current_deployment');
+    if ($current_deployment) {
+      set_transient('previous_deployment_status', $current_deployment['status']);
+      $current_deployment['status'] = $status;
+      set_transient('current_deployment', $current_deployment, 12 * HOUR_IN_SECONDS);
+    }
+
+    wp_send_json_success(array('status' => $status));
+  }
+
 
 
 
@@ -291,12 +327,15 @@ class vdhp_vercel_webhook_deploy
    * @since 1.0.0
    **/
   public function plugin_settings_page_content()
-  { ?>
+  {
+    $current_deployment = get_transient('current_deployment');
+    $buildStatus = isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING' ? 'running' : null;
+?>
 <div class="wrap">
   <h2><?php _e('Vercel Deploy Hooks', 'vercel-deploy-hooks'); ?></h2>
   <hr>
   <h3><?php _e('Build Website', 'vercel-deploy-hooks'); ?></h3>
-  <button id="build_button" class="button button-primary" name="submit" type="submit">
+  <button id="build_button" class="button button-primary <?php echo $buildStatus; ?>" name="submit" type="submit">
     <?php _e('Build Site', 'vercel-deploy-hooks'); ?>
   </button>
   <br>
@@ -307,7 +346,13 @@ class vdhp_vercel_webhook_deploy
     <li id="build_status_createdAt" style="display:none"></li>
   </ul>
   </p>
-  <p style="font-size: 12px">*<?php _e('Do not abuse the Build Site button', 'vercel-deploy-hooks'); ?>*</p>
+  <p style="font-size: 12px">
+    <?php if (isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING'): ?>
+    <?php _e('It seems another deploy is running. Please wait until it has finished to start a new one.', 'vercel-deploy-hooks'); ?>
+    <?php else: ?>
+    *<?php _e('Do not abuse the Build Site button', 'vercel-deploy-hooks'); ?>*
+    <?php endif; ?>
+  </p>
   <br>
 </div>
 <?php
@@ -385,89 +430,103 @@ class vdhp_vercel_webhook_deploy
            **/
           public function run_the_mighty_javascript()
           {
-            // TODO: split up javascript to allow to be dynamically imported as needed
-            // $screen = get_current_screen();
-            // if ( $screen && $screen->parent_base != 'developer_webhook_fields' && $screen->parent_base != 'deploy_webhook_fields_sub' ) {
-            //     return;
-            // }
-
             // Generate nonce
             $nonce = wp_create_nonce('get_deployment_status_nonce');
+            $updateCheckNonce = wp_create_nonce('update_deployment_status_nonce');
 
+            // Get current deployment status
+            $current_deployment = get_transient('current_deployment');
             ?>
+<div class="notification-modal hidden"><span class="close-btn button button-primary">OK</span></div>
 <script type="text/javascript">
-console.log('run_the_mighty_javascript');
 jQuery(document).ready(function($) {
-  var _this = this;
+  console.log('run_the_mighty_javascript');
   $(".deploy_page_developer_webhook_fields td > input").css("width", "100%");
+  $('.notification-modal.popup').on("click", function(e) {
+    $(this).removeClass().addClass('hidden');
+  });
+
 
   var webhook_url = '<?php echo ($this->get_webhook_address()) ?>';
-  var vercel_site_id = '<?php echo (get_option('vercel_site_id')) ?>';
   var nonce = '<?php echo $nonce; ?>';
+  var updateCheckNonce = '<?php echo $updateCheckNonce; ?>';
 
   function vercelDeploy() {
     return $.ajax({
       type: "POST",
       url: webhook_url,
       dataType: "json",
-    })
+    });
   }
 
   function handle_wp_admin_button_status(status) {
     var $button = $('#wp-admin-bar-vercel-deploy-button'),
       $buttonContent = $button.find('.ab-item:first');
-    var $classesToRemove = 'dashicons-hammer dashicons-no dashicons-yes dashicons-update spin'
+    var $classesToRemove =
+      'dashicons-hammer dashicons-no dashicons-yes dashicons-update spin error success warning deploying ';
     $("#build_button").prop("disabled", status === 'BUILDING');
     if (status === 'BUILDING') {
       $button.addClass('running');
       $buttonContent.find('.ab-label').text('Deploying...');
       $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-update spin')
+        .removeClass($classesToRemove).addClass('dashicons-update spin deploying ');
     } else if (status === 'ERROR') {
-      $button.removeClass('running')
-      $buttonContent.find('.ab-label').text('Deploy');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-no')
+      $button.removeClass('running');
       $buttonContent.find('.ab-label').text('Error');
+      $buttonContent.find('.ab-icon')
+        .removeClass($classesToRemove).addClass('dashicons-no error');
       setTimeout(function() {
         $buttonContent.find('.ab-icon')
           .removeClass($classesToRemove).addClass('dashicons-hammer');
         $buttonContent.find('.ab-label').text('Deploy');
       }, 30000); // 30 seconds
-
     } else if (status === 'READY') {
-      $button.removeClass('running')
-      $buttonContent.find('.ab-label').text('Deploy');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-yes')
+      $button.removeClass('running');
       $buttonContent.find('.ab-label').text('Ready!');
+      $buttonContent.find('.ab-icon')
+        .removeClass($classesToRemove).addClass('dashicons-yes success');
       setTimeout(function() {
         $buttonContent.find('.ab-icon')
           .removeClass($classesToRemove).addClass('dashicons-hammer');
         $buttonContent.find('.ab-label').text('Deploy');
       }, 30000); // 30 seconds
     } else {
-      $button.removeClass('running')
+      $button.removeClass('running');
       $buttonContent.find('.ab-label').text('Deploy');
       $buttonContent.find('.ab-icon')
         .removeClass($classesToRemove).addClass('dashicons-hammer');
     }
-
   }
 
-  // Since the deployhook does not return the deploy uid, we have to get it via timestamp
   function checkDeploymentStatus(timestamp, nonce) {
-
     $.ajax({
       type: "GET",
       url: `/wp-admin/admin-ajax.php?action=get_deployment_status&timestamp=${timestamp}&_wpnonce=${nonce}`,
       dataType: "json",
       success: function(data) {
-        handle_wp_admin_button_status(data.state)
+        handle_wp_admin_button_status(data.state);
         $("#build_status_state").html('<b>State</b>: ' + data.state);
+        if (!$('.notification-modal').hasClass('hidden')) {
+          $('.notification-modal').addClass('hidden').html('')
+        }
         if (data.state !== 'BUILDING') {
           clearInterval(pollingInterval);
-          window.location.href = `${window.location.href}&deployment_status=${data.state.toLowerCase()}`;
+          $.ajax({
+            type: "GET",
+            url: `/wp-admin/admin-ajax.php?action=update_deployment_status&status=${data.state}&_wpnonce=${updateCheckNonce}`,
+            dataType: "json",
+            success: function() {
+              console.log('Deployment status updated to ' + data.state);
+              $('.notification-modal').removeClass('hidden').addClass('popup success').html(
+                '<h3>Deploy has finished! <span class="ab-icon dashicons dashicons-yes"></span></h3>')
+            },
+            error: function(error) {
+              console.error('Error updating deployment status:', error);
+              $('.notification-modal').removeClass('hidden').addClass('popup error').html(
+                '<h3>Ooops! Something went wrong, please retry <span class="ab-icon dashicons dashicons-no"></span></h3>'
+              )
+            }
+          });
         }
       },
       error: function(error) {
@@ -476,6 +535,7 @@ jQuery(document).ready(function($) {
       }
     });
   }
+
   var pollingInterval;
 
   function startPolling(timestamp, nonce) {
@@ -484,51 +544,57 @@ jQuery(document).ready(function($) {
     }, 10000); // Poll every 10 seconds
   }
 
+  // PHP condition to check current deployment status
+  <?php if ($current_deployment && isset($current_deployment['created']) && isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING') : ?>
+  var currentTimeStamp = '<?php echo $current_deployment['created']; ?>';
+  startPolling(currentTimeStamp, nonce);
+  <?php endif ?>
+
   $("#build_button").on("click", function(e) {
     e.preventDefault();
-
+    $('.notification-modal').removeClass('hidden').html(
+      '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+    )
     vercelDeploy().done(function(res) {
-        $("#build_status").html('Building in progress');
-        $("#build_status_id").removeAttr('style');
-        $("#build_status_id").html('<b>ID</b>: ' + res.job.id);
-        $("#build_status_state").removeAttr('style');
-        $("#build_status_state").html('<b>State</b>: ' + res.job.state);
-        $("#build_status_createdAt").removeAttr('style');
-        $("#build_status_createdAt").html('<b>Created At</b>: ' + new Date(res.job.createdAt)
-          .toLocaleString());
+      $('.notification-modal').html(
+        '<h3>Deploy is starting and will run in background, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+      )
+      $("#build_status").html('Building in progress');
+      $("#build_status_id").html('<b>ID</b>: ' + res.job.id);
+      $("#build_status_state").html('<b>State</b>: ' + res.job.state);
+      $("#build_status_createdAt").html('<b>Created At</b>: ' + new Date(res.job.createdAt)
+        .toLocaleString());
 
-
-        // Add class to deploy button in admin
-        handle_wp_admin_button_status('BUILDING')
-        // Start polling to check status
-        startPolling(res.job.createdAt, nonce);
-      })
-      .fail(function() {
-        console.error("error res => ", this)
-        $("#build_status").html('There seems to be an error with the build', this);
-        handle_wp_admin_button_status('ERROR')
-      })
+      handle_wp_admin_button_status('BUILDING');
+      startPolling(res.job.createdAt, nonce);
+    }).fail(function() {
+      console.error('Error starting build');
+      $("#build_status").html('There seems to be an error with the build');
+      handle_wp_admin_button_status('ERROR');
+    });
   });
 
   $(document).on('click', '#wp-admin-bar-vercel-deploy-button', function(e) {
+    $('.notification-modal').removeClass('hidden').html(
+      '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+    )
     e.preventDefault();
-
     vercelDeploy().done(function(res) {
-        // Add class to deploy button in admin
-        handle_wp_admin_button_status('BUILDING')
-        // Start polling to check status
-        startPolling(res.job.createdAt, nonce);
-      })
-      .fail(function() {
-
-        handle_wp_admin_button_status('ERROR')
-        console.error("error res => ", this)
-      })
+      $('.notification-modal').html(
+        '<h3>Building in progress... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+      )
+      handle_wp_admin_button_status('BUILDING');
+      startPolling(res.job.createdAt, nonce);
+    }).fail(function() {
+      console.error('Error starting build via admin bar');
+      handle_wp_admin_button_status('ERROR');
+    });
   });
 });
 </script>
 <?php
           }
+
 
           public function create_plugin_capabilities()
           {
@@ -611,6 +677,8 @@ jQuery(document).ready(function($) {
 </div>
 <?php
           }
+
+
 
           /**
            * Setup Sections
@@ -718,7 +786,7 @@ jQuery(document).ready(function($) {
                 'uid' => 'team_id',
                 'label' => __('Team Id', 'vercel-deploy-hooks'),
                 'section' => 'developer_section',
-                'type' => 'password',
+                'type' => 'text',
                 'placeholder' => '',
                 'default' => '',
                 'callback' => $this->is_using_constant_webhook() ? function ($data) {
@@ -729,7 +797,7 @@ jQuery(document).ready(function($) {
                 'uid' => 'project_id',
                 'label' => __('Project Id', 'vercel-deploy-hooks'),
                 'section' => 'developer_section',
-                'type' => 'password',
+                'type' => 'text',
                 'placeholder' => '',
                 'default' => '',
                 'callback' => $this->is_using_constant_webhook() ? function ($data) {
@@ -825,13 +893,34 @@ jQuery(document).ready(function($) {
            **/
           public function add_to_admin_bar($admin_bar)
           {
+            $current_deployment = get_transient('current_deployment');
+            $icon = 'dashicons-hammer';
+            $label = __('Deploy', 'vercel-deploy-hooks');
+            $iconclass = '';
+            $classes = 'ready-btn';
+
+
+            if (($current_deployment && isset($current_deployment['status']))) {
+              $status = $current_deployment['status'];
+              if ($status === 'BUILDING') {
+                $icon = 'dashicons-update';
+                $label = __('Deploying...', 'vercel-deploy-hooks');
+                $iconclass = 'spin deploying';
+                $classes = "running";
+              } else {
+                $icon = 'dashicons-hammer';
+                $label = __('Deploy', 'vercel-deploy-hooks');
+                $iconclass = '';
+                $classes = 'ready-btn';
+              }
+            }
             if (current_user_can('vercel_deploy_capability')) {
               $webhook_address = get_option('webhook_address');
 
               if ($webhook_address) {
                 $button = array(
                   'id' => 'vercel-deploy-button',
-                  'title' => '<div style="cursor: pointer;"><span class="ab-icon dashicons dashicons-hammer"></span> <span class="ab-label">' . __('Deploy Site', 'vercel-deploy-hooks') . '</span></div>'
+                  'title' => '<div class="' . $classes . '"><span class="ab-icon dashicons ' . $icon . ' ' . $iconclass . '"></span> <span class="ab-label">' . $label . '</span></div>'
                 );
                 $admin_bar->add_node($button);
               }
