@@ -331,31 +331,31 @@ class vdhp_vercel_webhook_deploy
     $current_deployment = get_transient('current_deployment');
     $buildStatus = isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING' ? 'running' : null;
 ?>
-<div class="wrap">
-  <h2><?php _e('Vercel Deploy Hooks', 'vercel-deploy-hooks'); ?></h2>
-  <hr>
-  <h3><?php _e('Build Website', 'vercel-deploy-hooks'); ?></h3>
-  <button id="build_button" class="button button-primary <?php echo $buildStatus; ?>" name="submit" type="submit">
-    <?php _e('Build Site', 'vercel-deploy-hooks'); ?>
-  </button>
-  <br>
-  <p id="build_status" style="font-size: 12px; margin: 16px 0;">
-  <ul>
-    <li id="build_status_id" style="display:none"></li>
-    <li id="build_status_state" style="display:none"></li>
-    <li id="build_status_createdAt" style="display:none"></li>
-  </ul>
-  </p>
-  <p style="font-size: 12px">
-    <?php if (isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING'): ?>
-    <?php _e('It seems another deploy is running. Please wait until it has finished to start a new one.', 'vercel-deploy-hooks'); ?>
-    <?php else: ?>
-    *<?php _e('Do not abuse the Build Site button', 'vercel-deploy-hooks'); ?>*
-    <?php endif; ?>
-  </p>
-  <br>
-</div>
-<?php
+    <div class="wrap">
+      <h2><?php _e('Vercel Deploy Hooks', 'vercel-deploy-hooks'); ?></h2>
+      <hr>
+      <h3><?php _e('Build Website', 'vercel-deploy-hooks'); ?></h3>
+      <button id="build_button" class="button button-primary <?php echo $buildStatus; ?>" name="submit" type="submit">
+        <?php _e('Build Site', 'vercel-deploy-hooks'); ?>
+      </button>
+      <br>
+      <p id="build_status" style="font-size: 12px; margin: 16px 0;">
+      <ul>
+        <li id="build_status_id" style="display:none"></li>
+        <li id="build_status_state" style="display:none"></li>
+        <li id="build_status_createdAt" style="display:none"></li>
+      </ul>
+      </p>
+      <p style="font-size: 12px">
+        <?php if (isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING'): ?>
+          <?php _e('It seems another deploy is running. Please wait until it has finished to start a new one.', 'vercel-deploy-hooks'); ?>
+        <?php else: ?>
+          *<?php _e('Do not abuse the Build Site button', 'vercel-deploy-hooks'); ?>*
+        <?php endif; ?>
+      </p>
+      <br>
+    </div>
+  <?php
   }
 
   /**
@@ -365,24 +365,24 @@ class vdhp_vercel_webhook_deploy
    **/
   public function plugin_settings_schedule_content()
   { ?>
-<div class="wrap">
-  <h1><?php _e('Schedule vercel Builds', 'vercel-deploy-hooks'); ?></h1>
-  <p><?php _e('This section allows regular vercel builds to be scheduled.', 'vercel-deploy-hooks'); ?></p>
-  <hr>
+    <div class="wrap">
+      <h1><?php _e('Schedule vercel Builds', 'vercel-deploy-hooks'); ?></h1>
+      <p><?php _e('This section allows regular vercel builds to be scheduled.', 'vercel-deploy-hooks'); ?></p>
+      <hr>
 
-  <?php
+      <?php
       if (isset($_GET['settings-updated']) && $_GET['settings-updated']) {
         $this->admin_notice();
       } ?>
 
-  <form method="POST" action="options.php">
-    <?php
+      <form method="POST" action="options.php">
+        <?php
         settings_fields('schedule_webhook_fields');
         do_settings_sections('schedule_webhook_fields');
         submit_button();
         ?>
-  </form>
-</div> <?php
+      </form>
+    </div> <?php
           }
 
           /**
@@ -392,35 +392,35 @@ class vdhp_vercel_webhook_deploy
            **/
           public function plugin_settings_developer_content()
           { ?>
-<div class="wrap">
-  <h1><?php _e('Settings', 'vercel-deploy-hooks'); ?></h1>
-  <hr>
+    <div class="wrap">
+      <h1><?php _e('Settings', 'vercel-deploy-hooks'); ?></h1>
+      <hr>
 
-  <?php
+      <?php
             if (isset($_GET['settings-updated']) && $_GET['settings-updated']) {
               $this->admin_notice();
             } ?>
-  <form method="POST" action="options.php">
-    <?php
+      <form method="POST" action="options.php">
+        <?php
             settings_fields('developer_webhook_fields');
             do_settings_sections('developer_webhook_fields');
             submit_button();
         ?>
-  </form>
+      </form>
 
-  <footer>
-    <h3><?php _e('Extra Info', 'vercel-deploy-hooks'); ?></h3>
-    <p>
-      <a
-        href="https://github.com/aderaaij/wp-vercel-deploy-hooks"><?php _e('Plugin repository on Github', 'vercel-deploy-hooks'); ?></a>
-    </p>
-    <p>
-      <a
-        href="https://vercel.com/docs/more/deploy-hooks"><?php _e('Vercel Deploy Hooks Documentation', 'vercel-deploy-hooks'); ?></a>
-    </p>
-  </footer>
+      <footer>
+        <h3><?php _e('Extra Info', 'vercel-deploy-hooks'); ?></h3>
+        <p>
+          <a
+            href="https://github.com/aderaaij/wp-vercel-deploy-hooks"><?php _e('Plugin repository on Github', 'vercel-deploy-hooks'); ?></a>
+        </p>
+        <p>
+          <a
+            href="https://vercel.com/docs/more/deploy-hooks"><?php _e('Vercel Deploy Hooks Documentation', 'vercel-deploy-hooks'); ?></a>
+        </p>
+      </footer>
 
-</div> <?php
+    </div> <?php
           }
 
           /**
@@ -437,162 +437,164 @@ class vdhp_vercel_webhook_deploy
             // Get current deployment status
             $current_deployment = get_transient('current_deployment');
             ?>
-<div class="notification-modal hidden"><span class="close-btn button button-primary">OK</span></div>
-<script type="text/javascript">
-jQuery(document).ready(function($) {
-  console.log('run_the_mighty_javascript');
-  $(".deploy_page_developer_webhook_fields td > input").css("width", "100%");
-  $('.notification-modal.popup').on("click", function(e) {
-    $(this).removeClass().addClass('hidden');
-  });
+    <div class="notification-modal hidden"></div>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        console.log('run_the_mighty_javascript');
+        $(".deploy_page_developer_webhook_fields td > input").css("width", "100%");
+        $('.notification-modal').on("click", function(e) {
+          if ($(this).hasClass('popup')) {
+            $(this).removeClass('popup').addClass('hidden');
+          }
+        });
 
 
-  var webhook_url = '<?php echo ($this->get_webhook_address()) ?>';
-  var nonce = '<?php echo $nonce; ?>';
-  var updateCheckNonce = '<?php echo $updateCheckNonce; ?>';
+        var webhook_url = '<?php echo ($this->get_webhook_address()) ?>';
+        var nonce = '<?php echo $nonce; ?>';
+        var updateCheckNonce = '<?php echo $updateCheckNonce; ?>';
 
-  function vercelDeploy() {
-    return $.ajax({
-      type: "POST",
-      url: webhook_url,
-      dataType: "json",
-    });
-  }
-
-  function handle_wp_admin_button_status(status) {
-    var $button = $('#wp-admin-bar-vercel-deploy-button'),
-      $buttonContent = $button.find('.ab-item:first');
-    var $classesToRemove =
-      'dashicons-hammer dashicons-no dashicons-yes dashicons-update spin error success warning deploying ';
-    $("#build_button").prop("disabled", status === 'BUILDING');
-    if (status === 'BUILDING') {
-      $button.addClass('running');
-      $buttonContent.find('.ab-label').text('Deploying...');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-update spin deploying ');
-    } else if (status === 'ERROR') {
-      $button.removeClass('running');
-      $buttonContent.find('.ab-label').text('Error');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-no error');
-      setTimeout(function() {
-        $buttonContent.find('.ab-icon')
-          .removeClass($classesToRemove).addClass('dashicons-hammer');
-        $buttonContent.find('.ab-label').text('Deploy');
-      }, 30000); // 30 seconds
-    } else if (status === 'READY') {
-      $button.removeClass('running');
-      $buttonContent.find('.ab-label').text('Ready!');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-yes success');
-      setTimeout(function() {
-        $buttonContent.find('.ab-icon')
-          .removeClass($classesToRemove).addClass('dashicons-hammer');
-        $buttonContent.find('.ab-label').text('Deploy');
-      }, 30000); // 30 seconds
-    } else {
-      $button.removeClass('running');
-      $buttonContent.find('.ab-label').text('Deploy');
-      $buttonContent.find('.ab-icon')
-        .removeClass($classesToRemove).addClass('dashicons-hammer');
-    }
-  }
-
-  function checkDeploymentStatus(timestamp, nonce) {
-    $.ajax({
-      type: "GET",
-      url: `/wp-admin/admin-ajax.php?action=get_deployment_status&timestamp=${timestamp}&_wpnonce=${nonce}`,
-      dataType: "json",
-      success: function(data) {
-        handle_wp_admin_button_status(data.state);
-        $("#build_status_state").html('<b>State</b>: ' + data.state);
-        if (!$('.notification-modal').hasClass('hidden')) {
-          $('.notification-modal').addClass('hidden').html('')
+        function vercelDeploy() {
+          return $.ajax({
+            type: "POST",
+            url: webhook_url,
+            dataType: "json",
+          });
         }
-        if (data.state !== 'BUILDING') {
-          clearInterval(pollingInterval);
+
+        function handle_wp_admin_button_status(status) {
+          var $button = $('#wp-admin-bar-vercel-deploy-button'),
+            $buttonContent = $button.find('.ab-item:first');
+          var $classesToRemove =
+            'dashicons-hammer dashicons-no dashicons-yes dashicons-update spin error success warning deploying ';
+          $("#build_button").prop("disabled", status === 'BUILDING');
+          if (status === 'BUILDING') {
+            $button.addClass('running');
+            $buttonContent.find('.ab-label').text('Deploying...');
+            $buttonContent.find('.ab-icon')
+              .removeClass($classesToRemove).addClass('dashicons-update spin deploying ');
+          } else if (status === 'ERROR') {
+            $button.removeClass('running');
+            $buttonContent.find('.ab-label').text('Error');
+            $buttonContent.find('.ab-icon')
+              .removeClass($classesToRemove).addClass('dashicons-no error');
+            setTimeout(function() {
+              $buttonContent.find('.ab-icon')
+                .removeClass($classesToRemove).addClass('dashicons-hammer');
+              $buttonContent.find('.ab-label').text('Deploy');
+            }, 30000); // 30 seconds
+          } else if (status === 'READY') {
+            $button.removeClass('running');
+            $buttonContent.find('.ab-label').text('Ready!');
+            $buttonContent.find('.ab-icon')
+              .removeClass($classesToRemove).addClass('dashicons-yes success');
+            setTimeout(function() {
+              $buttonContent.find('.ab-icon')
+                .removeClass($classesToRemove).addClass('dashicons-hammer');
+              $buttonContent.find('.ab-label').text('Deploy');
+            }, 30000); // 30 seconds
+          } else {
+            $button.removeClass('running');
+            $buttonContent.find('.ab-label').text('Deploy');
+            $buttonContent.find('.ab-icon')
+              .removeClass($classesToRemove).addClass('dashicons-hammer');
+          }
+        }
+
+        function checkDeploymentStatus(timestamp, nonce) {
           $.ajax({
             type: "GET",
-            url: `/wp-admin/admin-ajax.php?action=update_deployment_status&status=${data.state}&_wpnonce=${updateCheckNonce}`,
+            url: `/wp-admin/admin-ajax.php?action=get_deployment_status&timestamp=${timestamp}&_wpnonce=${nonce}`,
             dataType: "json",
-            success: function() {
-              console.log('Deployment status updated to ' + data.state);
-              $('.notification-modal').removeClass('hidden').addClass('popup success').html(
-                '<h3>Deploy has finished! <span class="ab-icon dashicons dashicons-yes"></span></h3>')
+            success: function(data) {
+              handle_wp_admin_button_status(data.state);
+              $("#build_status_state").html('<b>State</b>: ' + data.state);
+              if (!$('.notification-modal').hasClass('hidden')) {
+                $('.notification-modal').addClass('hidden').html('')
+              }
+              if (data.state !== 'BUILDING') {
+                clearInterval(pollingInterval);
+                $.ajax({
+                  type: "GET",
+                  url: `/wp-admin/admin-ajax.php?action=update_deployment_status&status=${data.state}&_wpnonce=${updateCheckNonce}`,
+                  dataType: "json",
+                  success: function() {
+                    console.log('Deployment status updated to ' + data.state);
+                    $('.notification-modal').removeClass('hidden').addClass('popup success').html(
+                      '<h3>Deploy has finished! <span class="ab-icon dashicons dashicons-yes"></span></h3>')
+                  },
+                  error: function(error) {
+                    console.error('Error updating deployment status:', error);
+                    $('.notification-modal').removeClass('hidden').addClass('popup error').html(
+                      '<h3>Ooops! Something went wrong, please retry <span class="ab-icon dashicons dashicons-no"></span></h3>'
+                    )
+                  }
+                });
+              }
             },
             error: function(error) {
-              console.error('Error updating deployment status:', error);
-              $('.notification-modal').removeClass('hidden').addClass('popup error').html(
-                '<h3>Ooops! Something went wrong, please retry <span class="ab-icon dashicons dashicons-no"></span></h3>'
-              )
+              console.error('Error fetching deployment status:', error);
+              clearInterval(pollingInterval);
             }
           });
         }
-      },
-      error: function(error) {
-        console.error('Error fetching deployment status:', error);
-        clearInterval(pollingInterval);
-      }
-    });
-  }
 
-  var pollingInterval;
+        var pollingInterval;
 
-  function startPolling(timestamp, nonce) {
-    pollingInterval = setInterval(function() {
-      checkDeploymentStatus(timestamp, nonce);
-    }, 10000); // Poll every 10 seconds
-  }
+        function startPolling(timestamp, nonce) {
+          pollingInterval = setInterval(function() {
+            checkDeploymentStatus(timestamp, nonce);
+          }, 10000); // Poll every 10 seconds
+        }
 
-  // PHP condition to check current deployment status
-  <?php if ($current_deployment && isset($current_deployment['created']) && isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING') : ?>
-  var currentTimeStamp = '<?php echo $current_deployment['created']; ?>';
-  startPolling(currentTimeStamp, nonce);
-  <?php endif ?>
+        // PHP condition to check current deployment status
+        <?php if ($current_deployment && isset($current_deployment['created']) && isset($current_deployment['status']) && $current_deployment['status'] === 'BUILDING') : ?>
+          var currentTimeStamp = '<?php echo $current_deployment['created']; ?>';
+          startPolling(currentTimeStamp, nonce);
+        <?php endif ?>
 
-  $("#build_button").on("click", function(e) {
-    e.preventDefault();
-    $('.notification-modal').removeClass('hidden').html(
-      '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
-    )
-    vercelDeploy().done(function(res) {
-      $('.notification-modal').html(
-        '<h3>Deploy is starting and will run in background, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
-      )
-      $("#build_status").html('Building in progress');
-      $("#build_status_id").html('<b>ID</b>: ' + res.job.id);
-      $("#build_status_state").html('<b>State</b>: ' + res.job.state);
-      $("#build_status_createdAt").html('<b>Created At</b>: ' + new Date(res.job.createdAt)
-        .toLocaleString());
+        $("#build_button").on("click", function(e) {
+          e.preventDefault();
+          $('.notification-modal').removeClass('hidden').html(
+            '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+          )
+          vercelDeploy().done(function(res) {
+            $('.notification-modal').html(
+              '<h3>Deploy is starting and will run in background, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+            )
+            $("#build_status").html('Building in progress');
+            $("#build_status_id").html('<b>ID</b>: ' + res.job.id);
+            $("#build_status_state").html('<b>State</b>: ' + res.job.state);
+            $("#build_status_createdAt").html('<b>Created At</b>: ' + new Date(res.job.createdAt)
+              .toLocaleString());
 
-      handle_wp_admin_button_status('BUILDING');
-      startPolling(res.job.createdAt, nonce);
-    }).fail(function() {
-      console.error('Error starting build');
-      $("#build_status").html('There seems to be an error with the build');
-      handle_wp_admin_button_status('ERROR');
-    });
-  });
+            handle_wp_admin_button_status('BUILDING');
+            startPolling(res.job.createdAt, nonce);
+          }).fail(function() {
+            console.error('Error starting build');
+            $("#build_status").html('There seems to be an error with the build');
+            handle_wp_admin_button_status('ERROR');
+          });
+        });
 
-  $(document).on('click', '#wp-admin-bar-vercel-deploy-button', function(e) {
-    $('.notification-modal').removeClass('hidden').html(
-      '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
-    )
-    e.preventDefault();
-    vercelDeploy().done(function(res) {
-      $('.notification-modal').html(
-        '<h3>Building in progress... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
-      )
-      handle_wp_admin_button_status('BUILDING');
-      startPolling(res.job.createdAt, nonce);
-    }).fail(function() {
-      console.error('Error starting build via admin bar');
-      handle_wp_admin_button_status('ERROR');
-    });
-  });
-});
-</script>
-<?php
+        $(document).on('click', '#wp-admin-bar-vercel-deploy-button', function(e) {
+          $('.notification-modal').removeClass('hidden').html(
+            '<h3>Deploy will start soon, please wait... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+          )
+          e.preventDefault();
+          vercelDeploy().done(function(res) {
+            $('.notification-modal').html(
+              '<h3>Building in progress... <span class="ab-icon dashicons dashicons-update spin"></span></h3>'
+            )
+            handle_wp_admin_button_status('BUILDING');
+            startPolling(res.job.createdAt, nonce);
+          }).fail(function() {
+            console.error('Error starting build via admin bar');
+            handle_wp_admin_button_status('ERROR');
+          });
+        });
+      });
+    </script>
+  <?php
           }
 
 
@@ -672,9 +674,9 @@ jQuery(document).ready(function($) {
            **/
           public function admin_notice()
           { ?>
-<div class="notice notice-success is-dismissible">
-  <p><?php _e('Your settings have been updated!', 'vercel-deploy-hooks'); ?></p>
-</div>
+    <div class="notice notice-success is-dismissible">
+      <p><?php _e('Your settings have been updated!', 'vercel-deploy-hooks'); ?></p>
+    </div>
 <?php
           }
 
